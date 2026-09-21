@@ -109,7 +109,7 @@ phil-DevSecOps-projects/
 ### 3.1 Terraform + Terragrunt
 - Three modules — `network`, `compute`, `secrets` — each with `azure/` and `aws/` implementations that share one `variables.tf` contract: `project`, `environment`, `region`, `cidr`, `allowed_ssh_cidrs`, `instance_size`, `tags`. Outputs are likewise identical: `vm_public_ip`, `vm_private_ip`, `secret_store_id`, `identity_id`.
 - Security defaults inside modules: disks encrypted, no public ingress except 443 (and 22 only from `allowed_ssh_cidrs`), IMDSv2 required (AWS), managed identity / instance profile with read-only secret access, boot diagnostics / flow logs on.
-- Terragrunt root `terragrunt.hcl` generates provider and backend blocks. Backend config uses placeholder bucket / storage-account names; CI and local runs use `terragrunt plan --terragrunt-no-auto-init` with `-backend=false` equivalent via `TERRAGRUNT_DISABLE_BACKEND`-style override documented in `infra/README.md`.
+- Terragrunt root `terragrunt.hcl` generates provider and backend blocks. The backend block is selected by the `TG_BACKEND` environment variable: `local` (default — state under `.terragrunt-cache`, used by CI and local dev) or `remote` (Azure Storage / S3 with placeholder names, used only by `apply.yml`). Providers use `skip_provider_registration` / `skip_credentials_validation` so `plan` succeeds with fake credentials (`ARM_*` / `AWS_*` set to dummy values in CI).
 - `envs/prod` inputs enforce stricter values (no `0.0.0.0/0`, larger instance allow-list, `deletion_protection = true`).
 - Each module has a `tests/*.tftest.hcl` using `terraform test` with `command = plan` and mock providers.
 
