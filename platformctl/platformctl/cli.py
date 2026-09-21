@@ -8,10 +8,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from platformctl import __version__, render, terraform
+from platformctl import __version__, adapters, render, terraform
 from platformctl import drift as drift_mod
 from platformctl import policy as policy_mod
 from platformctl import scan as scan_mod
+from platformctl import secrets as secrets_mod
 from platformctl.config import CloudName, EnvName, Settings, load_settings
 from platformctl.logging import configure
 
@@ -136,3 +137,42 @@ def drift(
         return
     if result.drifted:
         raise typer.Exit(code=2)
+
+
+secrets_app = typer.Typer(help="Secret lifecycle (rotate, list)")
+app.add_typer(secrets_app, name="secrets")
+
+
+@secrets_app.command("rotate")
+def secrets_rotate(
+    ctx: typer.Context,
+    name: str,
+    execute: Annotated[
+        bool,
+        typer.Option("--execute", help="Actually write the new version (default: dry run)"),
+    ] = False,
+) -> None:
+    """Generate a new secret version and deprecate previous ones."""
+    settings = get_settings(ctx)
+    adapter = adapters.get_adapter(settings)
+    result = secrets_mod.rotate(adapter, name, settings.secret_policy, execute=execute)
+    if not result.executed:
+        console.print(f"[yellow]DRY RUN[/] would rotate '{name}' (pass --execute to apply)")
+        return
+    console.print(
+        f"[green]rotated[/] '{name}' -> version {result.new_version}; "
+        f"deprecated {len(result.deprecated)} version(s)"
+    )
+
+
+@secrets_app.command("list")
+def secrets_list(ctx: typer.Context, name: str) -> None:
+    """List versions of a secret (values are never shown)."""
+    adapter = adapters.get_adapter(get_settings(ctx))
+    table = Table(title=name)
+    for col in ("Version", "Created", "Enabled", "Tags"):
+        table.add_column(col)
+    for v in adapter.list_secret_versions(name):
+        tags = ", ".join(f"{k}={val}" for k, val in v.tags.items())
+        table.add_row(v.version, v.created.isoformat(timespec="seconds"), str(v.enabled), tags)
+    console.print(table)
