@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+*.egg-info/
+
+# Terraform / Terragrunt
+**/.terraform/
+**/.terragrunt-cache/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan.binary
+crash.log
+.terraform.lock.hcl
+
+# platformctl outputs
+.platformctl/
+ansible/inventory/*.yml
+!ansible/inventory/.gitkeep
+
+# Scanner outputs
+*.sarif
+sbom.*.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

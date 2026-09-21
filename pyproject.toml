@@ -1,0 +1,37 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["platformctl", "app/src"]
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "N", "ANN", "RUF"]
+ignore = ["ANN401"]  # Any is acceptable for **kwargs passthrough
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S106", "ANN"]  # asserts and test passwords are fine in tests
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["platformctl/platformctl", "app/src"]
+mypy_path = "platformctl:app/src"
+
+[[tool.mypy.overrides]]
+module = ["azure.*", "boto3", "botocore.*", "yaml"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["platformctl/tests", "app/tests"]
+addopts = "-ra --strict-markers"
+markers = ["integration: needs external tools on PATH"]
+
+[tool.coverage.run]
+source = ["platformctl/platformctl"]
+branch = true
+omit = ["platformctl/platformctl/adapters/azure.py", "platformctl/platformctl/adapters/aws.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true

@@ -1,0 +1,14 @@
+# Runtime configuration for platformctl. Paths are relative to the repo root.
+adapter = "fake"            # fake | azure | aws  (fake needs no credentials)
+infra_dir = "infra"
+policy_dir = "policy/terraform"
+state_dir = ".platformctl"
+warn_days = 30
+
+[secret_policy]
+length = 40
+alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+[[cert_targets]]
+host = "example.com"
+port = 443

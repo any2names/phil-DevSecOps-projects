@@ -1,0 +1,15 @@
+directory:
+  - infra/terraform
+  - infra/arm
+  - app
+framework:
+  - terraform
+  - arm
+  - dockerfile
+  - github_actions
+compact: true
+quiet: true
+# Every skip needs a justification. Keep this list short.
+skip-check:
+  - CKV_AZURE_50   # VM extensions are intentionally allowed for the Azure Monitor agent installed by Ansible
+  - CKV_AWS_79     # false positive: IMDSv2 is enforced via metadata_options http_tokens=required

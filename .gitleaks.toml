@@ -1,0 +1,19 @@
+title = "secure-api-platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders only. Anything else that looks like a secret is a finding."
+regexes = [
+  '''REPLACE_ME_[A-Z_]+''',
+  '''ami-0123456789abcdef0''',
+  '''tfstate-placeholder''',
+  '''00000000-0000-0000-0000-000000000000''',
+  '''local-dev-only-not-a-real-secret''',
+  '''ci-only-secret''',
+  '''test-secret-value''',
+]
+paths = [
+  '''docs/superpowers/.*''',
+]
