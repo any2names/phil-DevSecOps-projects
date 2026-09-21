@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from platformctl import __version__, render, terraform
+from platformctl import drift as drift_mod
 from platformctl import policy as policy_mod
 from platformctl import scan as scan_mod
 from platformctl.config import CloudName, EnvName, Settings, load_settings
@@ -101,3 +102,37 @@ def scan(
     console.print(f"SARIF written to {out}")
     if scan_mod.exceeds(findings, fail_on):
         raise typer.Exit(code=1)
+
+
+@app.command()
+def drift(
+    ctx: typer.Context,
+    cloud: CloudName,
+    env: EnvName,
+    accept: Annotated[
+        bool, typer.Option(help="Record the current plan as the new last-good baseline")
+    ] = False,
+    report: Annotated[Path | None, typer.Option(help="Write a markdown drift report here")] = None,
+) -> None:
+    """Detect drift: exit 2 if the plan would change anything, 0 if in sync."""
+    settings = get_settings(ctx)
+    plan_path, _ = terraform.terragrunt_plan(settings, cloud, env, detailed_exitcode=True)
+    current = terraform.parse_plan(json.loads(plan_path.read_text()))
+    baseline = drift_mod.last_good_path(settings, cloud, env)
+    previous = (
+        terraform.PlanSummary.model_validate_json(baseline.read_text())
+        if baseline.exists()
+        else None
+    )
+    result = drift_mod.compare(cloud.value, env.value, previous, current)
+    md = drift_mod.render_markdown(result)
+    if report:
+        report.write_text(md)
+    console.print(md)
+    if accept:
+        baseline.parent.mkdir(parents=True, exist_ok=True)
+        baseline.write_text(current.model_dump_json(indent=2))
+        console.print(f"Baseline saved to {baseline}")
+        return
+    if result.drifted:
+        raise typer.Exit(code=2)
