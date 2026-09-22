@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   python:
+    permissions:
+      contents: read
     uses: ./.github/workflows/_reusable-python.yml
 
   terraform:
@@ -20,12 +22,17 @@ jobs:
       matrix:
         cloud: [azure, aws]
         environment: [dev, prod]
+    permissions:
+      contents: read
     uses: ./.github/workflows/_reusable-terraform.yml
     with:
       cloud: ${{ matrix.cloud }}
       environment: ${{ matrix.environment }}
 
   security:
+    permissions:
+      contents: read
+      security-events: write
     uses: ./.github/workflows/_reusable-security.yml
 
   arm:
@@ -79,7 +86,10 @@ jobs:
       - name: Smoke test container
         run: |
           docker run -d --rm --name api -e APP_SECRET=ci-only-secret-0123456789 -p 8000:8000 secure-api:ci
-          for i in $(seq 1 15); do curl -fsS http://127.0.0.1:8000/healthz && break || sleep 1; done
+          for _ in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:8000/healthz; then break; fi
+            sleep 1
+          done
           curl -fsS http://127.0.0.1:8000/api/v1/status | grep -q '"secret_configured":true'
           docker stop api
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
