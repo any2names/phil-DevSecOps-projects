@@ -13,8 +13,8 @@ permissions: {}
 
 env:
   TERRAFORM_VERSION: "1.9.8"
-  TERRAGRUNT_VERSION: "0.67.16"
-  CONFTEST_VERSION: "0.56.0"
+  TERRAGRUNT_VERSION: "1.1.6"
+  CONFTEST_VERSION: "0.70.1"
   TG_BACKEND: local
   # No cloud credentials anywhere in CI. platformctl detects that and injects a hermetic
   # plan environment (dummy AWS keys; az CLI shim + TC_TEST_VIA_VCR for Azure) — see ADR-0007.

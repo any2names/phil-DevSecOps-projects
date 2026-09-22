@@ -2,7 +2,7 @@
 dependency:
   name: galaxy
   options:
-    requirements-file: requirements.yml
+    requirements-file: ${MOLECULE_PROJECT_DIRECTORY}/requirements.yml
 driver:
   name: docker
 platforms:
@@ -16,14 +16,13 @@ platforms:
     command: /lib/systemd/systemd
 provisioner:
   name: ansible
-  config_options:
-    defaults:
-      roles_path: ../../roles
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/roles
   inventory:
     host_vars:
       secure-api-jammy:
         cloud: local
         environment: dev
-        app_deploy_source: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/../app"
+        app_deploy_source: ${MOLECULE_PROJECT_DIRECTORY}/../app
 verifier:
   name: ansible
