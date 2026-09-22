@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Orchestration CLI for the secure-api-platform: plan, policy, scan, drift, secrets, certs, supply chain."
 requires-python = ">=3.12"
 dependencies = [
-  "typer>=0.12",
+  "typer>=0.27.2",
   "pydantic>=2.7",
   "structlog>=24.1",
   "rich>=13.7",
