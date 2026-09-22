@@ -51,6 +51,17 @@
           - envfile.stat.mode == '0640'
           - envfile.stat.pw_name == 'root'
 
+    - name: Collect service diagnostics (always shown; the health check below is the assertion)
+      ansible.builtin.command: >
+        sh -c 'systemctl --no-pager status secure-api nginx; journalctl --no-pager -u secure-api -n 60'
+      register: diagnostics
+      changed_when: false
+      failed_when: false
+
+    - name: Show service diagnostics
+      ansible.builtin.debug:
+        var: diagnostics.stdout_lines
+
     - name: Wait for the app to answer
       ansible.builtin.uri:
         url: http://127.0.0.1:8000/healthz
