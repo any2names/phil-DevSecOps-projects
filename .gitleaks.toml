@@ -16,5 +16,5 @@ regexes = [
   '''AKIAABCDEFGHIJKLMNOP''', # fixture in policy/terraform/secrets_test.rego proving the OPA credential-pattern rule fires
 ]
 paths = [
-  '''docs/superpowers/.*''',
+  '''docs/design\.md''',
 ]

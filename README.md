@@ -63,12 +63,12 @@ Try the gate on a real plan — no cloud account needed ([ADR-0007](docs/adr/000
 ## Repository map
 
 ```
-platformctl/   Python CLI (orchestration, parsing, gating)        docs/architecture.md   diagrams
-infra/         Terraform modules, stacks, Terragrunt envs, ARM    docs/threat-model.md   STRIDE
-ansible/       harden + app_deploy roles, Molecule                docs/adr/              decisions (7)
-policy/        OPA/Rego + tests                                   docs/runbooks/         operations (4)
-app/           FastAPI service + Dockerfile                       .github/workflows/     ci, release, apply
-scripts/       az CLI shim for hermetic Azure plans
+platformctl/   Python CLI (orchestration, parsing, gating)        docs/design.md         design spec
+infra/         Terraform modules, stacks, Terragrunt envs, ARM    docs/architecture.md   diagrams
+ansible/       harden + app_deploy roles, Molecule                docs/threat-model.md   STRIDE
+policy/        OPA/Rego + tests                                   docs/adr/              decisions (7)
+app/           FastAPI service + Dockerfile                       docs/runbooks/         operations (4)
+scripts/       az CLI shim for hermetic Azure plans                .github/workflows/     ci, release, apply
 ```
 
 ## What does *not* happen without cloud accounts

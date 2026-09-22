@@ -2,14 +2,14 @@
 
 **Date:** 2026-09-21
 **Status:** Approved
-**Purpose:** Portfolio repository demonstrating IaC, workflow orchestration, cloud-native automation, advanced Python, and DevSecOps practice for a job application. Every artifact must map to a job-description skill and be verifiable in CI without cloud credentials.
+**Purpose:** A reference platform for deploying and operating a small service across two clouds under DevSecOps practice — infrastructure-as-code, workflow orchestration, policy-as-code, and security-integrated CI/CD. Every capability must be backed by working code and verifiable in CI without cloud credentials.
 
 ## 1. Goals and constraints
 
 ### Goals
-- Demonstrate, with real working code: Terraform, Terragrunt, Ansible, ARM templates, GitHub Actions, advanced Python, policy-as-code, security-integrated CI/CD, secrets and certificate management, and software supply-chain security.
+- Cover the full delivery path with real working code: Terraform, Terragrunt, Ansible, ARM templates, GitHub Actions, a typed Python control plane, policy-as-code, security-integrated CI/CD, secrets and certificate management, and software supply-chain security.
 - One coherent system, not a grab-bag: a FastAPI service deployed onto a CIS-hardened VM in Azure and AWS, orchestrated by a Python CLI.
-- Documentation good enough that a hiring manager can follow the story top-to-bottom in ten minutes.
+- Documentation good enough that a new engineer can follow the system top-to-bottom in ten minutes.
 
 ### Constraints
 - **Validate-only CI.** No cloud credentials in GitHub. CI proves correctness, policy compliance, scanning and signing. Apply is a manually-triggered, environment-gated workflow documented as "requires account setup".
@@ -17,8 +17,8 @@
 - **Local dev without Docker.** Docker-dependent steps (Molecule, Trivy image scan) run in CI only; `make ci` skips them locally with a clear message.
 - **Zero secrets in repo**, enforced by gitleaks in pre-commit and CI.
 
-### Skill → artifact map (must appear in README)
-| JD skill | Artifact |
+### Capability → implementation map (must appear in README)
+| Capability | Implementation |
 |---|---|
 | Infrastructure-as-code | `infra/terraform/modules/*`, `infra/arm/keyvault.json` |
 | Workflow orchestration | `platformctl/` CLI, `.github/workflows/*` |
@@ -203,9 +203,9 @@ phil-DevSecOps-projects/
 ## 6. Definition of done
 - `make ci` passes locally with no cloud credentials and no Docker.
 - `ci.yml` green on `main` in GitHub.
-- Every JD skill has at least one row in the README table pointing at a real file.
+- Every capability has at least one row in the README table pointing at a real file.
 - Every top-level directory has a README.
-- All six ADRs and four runbooks written in full.
+- All ADRs and runbooks written in full.
 - No `TODO`, `TBD` or placeholder text outside of explicitly documented backend / account placeholders.
 
 ## 7. Out of scope
