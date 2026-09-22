@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  author: platform-team
+  description: CIS-inspired hardening for Ubuntu 22.04 application hosts
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions: [jammy]
+dependencies: []

@@ -1,0 +1,33 @@
+---
+- name: Detect container runtime (skip kernel/audit tasks inside Molecule containers)
+  ansible.builtin.set_fact:
+    harden_in_container: "{{ ansible_facts.virtualization_type in ['docker', 'container', 'containerd', 'podman'] }}"
+
+- name: Packages
+  ansible.builtin.include_tasks: packages.yml
+
+- name: Login banner (before SSH so sshd -t can see the Banner file)
+  ansible.builtin.template:
+    src: issue.net.j2
+    dest: /etc/issue.net
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: SSH
+  ansible.builtin.include_tasks: ssh.yml
+
+- name: Kernel parameters
+  ansible.builtin.include_tasks: sysctl.yml
+  when: not harden_in_container
+
+- name: Auditd
+  ansible.builtin.include_tasks: auditd.yml
+  when: not harden_in_container
+
+- name: Fail2ban
+  ansible.builtin.include_tasks: fail2ban.yml
+
+- name: Automatic updates
+  ansible.builtin.include_tasks: updates.yml
+  when: harden_auto_updates

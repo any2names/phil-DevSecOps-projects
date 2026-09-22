@@ -1,0 +1,18 @@
+---
+harden_ssh_allowed_users:
+  - platform
+harden_ssh_port: 22
+harden_auto_updates: true
+harden_fail2ban_bantime: 1h
+harden_fail2ban_maxretry: 5
+harden_remove_packages:
+  - telnet
+  - rsh-client
+  - talk
+  - xinetd
+harden_install_packages:
+  - auditd
+  - fail2ban
+  - unattended-upgrades
+  - ufw
+  - chrony

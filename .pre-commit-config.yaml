@@ -20,12 +20,14 @@ repos:
       - id: terraform_fmt
       - id: terraform_validate
         args: [--hook-config=--retry-once-with-cleanup=true]
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v26.8.0
+  - repo: local
     hooks:
       - id: ansible-lint
+        name: ansible-lint (production profile, from ansible/)
+        entry: bash -c 'cd ansible && ../.venv/bin/ansible-lint'
+        language: system
         files: ^ansible/
-        language_version: python3.13
+        pass_filenames: false
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.20.1
     hooks:
