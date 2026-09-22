@@ -1,10 +1,12 @@
+import hashlib
+
 import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("APP_SECRET", "test-secret-value")
+    monkeypatch.setenv("APP_SECRET", "test-secret-value-0123")
     monkeypatch.setenv("APP_ENV", "test")
     from secure_api.main import create_app
 
@@ -23,6 +25,7 @@ def test_status_never_leaks_secret(client: TestClient) -> None:
     assert body["environment"] == "test" and body["secret_configured"] is True
     assert len(body["secret_fingerprint"]) == 12
     assert "test-secret-value" not in r.text
+    assert body["secret_fingerprint"] != hashlib.sha256(b"test-secret-value-0123").hexdigest()[:12]
 
 
 def test_missing_secret_fails_fast(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,3 +45,11 @@ def test_security_headers(client: TestClient) -> None:
 def test_docs_disabled(client: TestClient) -> None:
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
+
+
+def test_short_secret_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_SECRET", "short")
+    from secure_api.main import create_app
+
+    with pytest.raises(RuntimeError, match="min 16"):
+        create_app()

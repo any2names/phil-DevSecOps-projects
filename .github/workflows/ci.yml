@@ -78,7 +78,7 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Smoke test container
         run: |
-          docker run -d --rm --name api -e APP_SECRET=ci-only-secret -p 8000:8000 secure-api:ci
+          docker run -d --rm --name api -e APP_SECRET=ci-only-secret-0123456789 -p 8000:8000 secure-api:ci
           for i in $(seq 1 15); do curl -fsS http://127.0.0.1:8000/healthz && break || sleep 1; done
           curl -fsS http://127.0.0.1:8000/api/v1/status | grep -q '"secret_configured":true'
           docker stop api

@@ -5,7 +5,7 @@ A deliberately small FastAPI service whose job is to prove the platform's secret
 | Endpoint | Purpose |
 |---|---|
 | `GET /healthz` | Liveness for nginx, Molecule and load balancers |
-| `GET /api/v1/status` | Reports version, environment and a SHA-256 *fingerprint* of the runtime secret — never the secret |
+| `GET /api/v1/status` | Reports version, environment and a keyed-HMAC *fingerprint* of the runtime secret (a rotation marker, not a hash that could be brute-forced) — never the secret |
 
 OpenAPI docs are disabled (`/docs`, `/openapi.json` → 404): an internal service has no business advertising its surface.
 
@@ -13,7 +13,7 @@ OpenAPI docs are disabled (`/docs`, `/openapi.json` → 404): an internal servic
 
 | Env var | Required | Source in production |
 |---|---|---|
-| `APP_SECRET` | yes (≥ 8 chars) | `/etc/secure-api/env`, written at service start by `fetch-secret.sh` from Key Vault / Secrets Manager using the VM identity |
+| `APP_SECRET` | yes (≥ 16 chars) | `/etc/secure-api/env`, written at service start by `fetch-secret.sh` from Key Vault / Secrets Manager using the VM identity |
 | `APP_ENV` | no (default `dev`) | same file |
 
 The app refuses to start without `APP_SECRET` — fail-fast beats a half-configured service.

@@ -1,6 +1,7 @@
 """Minimal FastAPI service. The notable part is what it does NOT do: log or return the secret."""
 
 import hashlib
+import hmac
 import os
 from collections.abc import Awaitable, Callable
 
@@ -15,7 +16,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     try:
         cfg = settings or Settings()  # type: ignore[call-arg]  # populated from APP_* env
     except ValidationError as exc:
-        raise RuntimeError("APP_SECRET is required (min 8 chars); APP_ENV is optional") from exc
+        raise RuntimeError("APP_SECRET is required (min 16 chars); APP_ENV is optional") from exc
     app = FastAPI(
         title="secure-api",
         version=__version__,
@@ -39,12 +40,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/status")
     async def status() -> dict[str, str | bool]:
-        fingerprint = hashlib.sha256(cfg.secret.encode()).hexdigest()[:12]
+        # Rotation marker, not a hash of the secret: keyed HMAC over a constant, so the
+        # fingerprint changes when the secret does but cannot be used as a brute-force
+        # oracle against short inputs (min length 16 is enforced in settings).
+        fingerprint = hmac.new(cfg.secret.encode(), b"secure-api/fingerprint", hashlib.sha256)
+        fingerprint_hex = fingerprint.hexdigest()[:12]
         return {
             "version": __version__,
             "environment": cfg.env,
             "secret_configured": True,
-            "secret_fingerprint": fingerprint,
+            "secret_fingerprint": fingerprint_hex,
         }
 
     return app

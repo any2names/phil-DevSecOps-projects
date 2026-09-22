@@ -11,7 +11,7 @@ regexes = [
   '''tfstate-placeholder''',
   '''00000000-0000-0000-0000-000000000000''',
   '''local-dev-only-not-a-real-secret''',
-  '''ci-only-secret''',
+  '''ci-only-secret-0123456789''',
   '''test-secret-value''',
   '''AKIAABCDEFGHIJKLMNOP''', # fixture in policy/terraform/secrets_test.rego proving the OPA credential-pattern rule fires
 ]
