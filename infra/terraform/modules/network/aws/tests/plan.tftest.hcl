@@ -21,8 +21,12 @@ run "ingress_rules" {
     error_message = "One SSH rule per allowed CIDR."
   }
   assert {
-    condition     = aws_cloudwatch_log_group.flow.retention_in_days == 90 && aws_flow_log.this.traffic_type == "ALL"
-    error_message = "Flow logs must capture ALL traffic for 90 days."
+    condition     = aws_cloudwatch_log_group.flow.retention_in_days == 365 && aws_flow_log.this.traffic_type == "ALL"
+    error_message = "Flow logs must capture ALL traffic for a year."
+  }
+  assert {
+    condition     = length(aws_vpc_security_group_egress_rule.allowed) == 4 && aws_vpc_security_group_egress_rule.allowed["https"].to_port == 443
+    error_message = "Egress must be limited to HTTPS, HTTP, DNS and NTP."
   }
   assert {
     condition     = aws_kms_key.logs.enable_key_rotation == true

@@ -53,6 +53,10 @@ SCANNERS: dict[str, list[str]] = {
         "sarif",
         "--output-file-path",
         "{out_dir}",
+        "--skip-path",
+        ".terragrunt-cache",
+        "--skip-path",
+        ".venv",
     ],
     "tfsec": [
         "tfsec",
@@ -85,6 +89,8 @@ SCANNERS: dict[str, list[str]] = {
         "sarif",
         "--output",
         "{out}",
+        "--skip-dirs",
+        ".venv,.terragrunt-cache,.terraform,.platformctl",
         "{root}",
     ],
 }
@@ -174,10 +180,12 @@ def run_scanner(name: str, repo_root: Path, out_dir: Path) -> dict[str, Any] | N
         log.warning("scanner.missing", tool=name)
         return None
     out = out_dir / f"{name}.sarif"
+    checkov_out = out_dir / "results_sarif.sarif"  # checkov picks its own file name
+    for stale in (out, checkov_out):
+        stale.unlink(missing_ok=True)  # never read a previous run's report
     argv = [a.format(root=repo_root, out=out, out_dir=out_dir) for a in template]
     proc.run(argv, cwd=repo_root, ok_codes=_OK_CODES[name])
-    # checkov names its file results_sarif.sarif inside out_dir
-    candidate = out if out.exists() else out_dir / "results_sarif.sarif"
+    candidate = out if out.exists() else checkov_out
     if not candidate.exists():
         log.warning("scanner.no_output", tool=name)
         return None

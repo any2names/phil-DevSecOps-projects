@@ -9,6 +9,12 @@ resource "aws_vpc" "this" {
   tags                 = merge(var.tags, { Name = "vpc-${local.name}" })
 }
 
+# Adopt the VPC default security group and strip every rule so nothing can use it by accident.
+resource "aws_default_security_group" "locked" {
+  vpc_id = aws_vpc.this.id
+  tags   = merge(var.tags, { Name = "default-locked-${local.name}" })
+}
+
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.this.id
   cidr_block              = cidrsubnet(var.cidr, 8, 1)
@@ -36,6 +42,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_security_group" "app" {
+  # checkov:skip=CKV2_AWS_5: attached to the instance by modules/compute/aws (cross-module; checkov cannot see it)
   name        = "${local.name}-app"
   description = "App VM: HTTPS from internet, SSH from admin CIDRs"
   vpc_id      = aws_vpc.this.id
@@ -63,10 +70,25 @@ resource "aws_vpc_security_group_ingress_rule" "ssh" {
   tags              = var.tags
 }
 
-resource "aws_vpc_security_group_egress_rule" "all" {
+# Egress is limited to what the host needs: HTTPS (secret store, apt), HTTP (apt mirrors),
+# DNS and NTP. Any-destination is unavoidable for package mirrors and cloud APIs.
+locals {
+  egress = {
+    https = { protocol = "tcp", port = 443, description = "HTTPS: secret store, apt, ACME" }
+    http  = { protocol = "tcp", port = 80, description = "HTTP: apt mirrors" }
+    dns   = { protocol = "udp", port = 53, description = "DNS" }
+    ntp   = { protocol = "udp", port = 123, description = "NTP (chrony)" }
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "allowed" {
+  #trivy:ignore:AVD-AWS-0104 destination cannot be narrowed for public mirrors/APIs; ports are
+  for_each          = local.egress
   security_group_id = aws_security_group.app.id
-  description       = "Outbound for package updates and secret retrieval"
-  ip_protocol       = "-1"
+  description       = each.value.description
+  ip_protocol       = each.value.protocol
+  from_port         = each.value.port
+  to_port           = each.value.port
   cidr_ipv4         = "0.0.0.0/0"
   tags              = var.tags
 }
@@ -74,6 +96,7 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 # --- VPC flow logs → CloudWatch, KMS encrypted ---
 
 resource "aws_kms_key" "logs" {
+  # checkov:skip=CKV2_AWS_64: default key policy (account root only) is intended; an explicit policy needs the account id, unavailable in hermetic plans (ADR-0007)
   description             = "Flow log encryption for ${local.name}"
   enable_key_rotation     = true
   deletion_window_in_days = 30
@@ -82,7 +105,7 @@ resource "aws_kms_key" "logs" {
 
 resource "aws_cloudwatch_log_group" "flow" {
   name              = "/vpc/${local.name}/flow-logs"
-  retention_in_days = 90
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.logs.arn
   tags              = var.tags
 }
@@ -112,6 +135,7 @@ resource "aws_iam_role" "flow" {
   tags               = var.tags
 }
 
+#tfsec:ignore:aws-iam-no-policy-wildcards CloudWatch log streams live under "<log-group-arn>:*"; the group itself is exact
 resource "aws_iam_role_policy" "flow" {
   name   = "flow-logs-write"
   role   = aws_iam_role.flow.id

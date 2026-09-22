@@ -19,7 +19,10 @@ resource "azurerm_public_ip" "vm" {
   tags                = var.tags
 }
 
+#trivy:ignore:AVD-AZU-0076 same as above
+#trivy:ignore:AVD-AZU-0068 the NSG is associated at subnet level (modules/network/azure), the recommended pattern
 resource "azurerm_network_interface" "vm" {
+  # checkov:skip=CKV_AZURE_119: the VM serves 443 directly; a bastion/private-endpoint variant is listed as future work (threat model, accepted risks)
   name                = "nic-${local.name}-vm"
   location            = var.region
   resource_group_name = var.resource_group_name

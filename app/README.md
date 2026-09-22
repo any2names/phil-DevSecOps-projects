@@ -29,6 +29,8 @@ The app refuses to start without `APP_SECRET` — fail-fast beats a half-configu
 
 ## Container
 
-Multi-stage build to `gcr.io/distroless/python3-debian12:nonroot` (no shell, no package manager, non-root),
-both base images pinned by digest (resolved from the registry API — see the plan in `docs/superpowers/plans`).
+Multi-stage build on a digest-pinned `python:3.11-slim`: build tooling stays in stage 1, the runtime applies Debian
+security updates at build time, runs as a non-root system user and ships a `HEALTHCHECK`. `gcr.io/distroless/python3`
+was evaluated first but lagged Debian security fixes by 19 fixable HIGH CVEs, failing the Trivy gate — a scan that
+passes beats a smaller attack surface that doesn't.
 Built, smoke-tested, scanned with Trivy in `ci.yml`; signed with cosign and shipped with an SPDX SBOM by `release.yml`.

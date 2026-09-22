@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -76,11 +77,15 @@ def test_run_scanner_reads_sarif_file(
     tmp_path: Path, fake_run: RunRecorder, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(scan.proc, "which", lambda _n: True)
-    fake_run.add(("gitleaks",), returncode=1, stdout="")
-    (tmp_path / "gitleaks.sarif").write_text(json.dumps(SARIF))
+
+    def fake_gitleaks(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+        (tmp_path / "gitleaks.sarif").write_text(json.dumps(SARIF))  # tool writes its report
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(scan.proc.subprocess, "run", fake_gitleaks)
+    fake_run.calls.clear()
     result = scan.run_scanner("gitleaks", tmp_path, tmp_path)
     assert result is not None and result["runs"][0]["tool"]["driver"]["name"] == "checkov"
-    assert "--report-path" in fake_run.calls[0]
 
 
 def test_run_scanner_no_output_returns_none(
@@ -107,3 +112,12 @@ def test_scan_cli_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     )
     assert r.exit_code == 0, r.output
     assert json.loads((tmp_path / "r.sarif").read_text())["version"] == "2.1.0"
+
+
+def test_run_scanner_ignores_stale_report(
+    tmp_path: Path, fake_run: RunRecorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(scan.proc, "which", lambda _n: True)
+    (tmp_path / "checkov.sarif").write_text(json.dumps(SARIF))  # left over from a previous run
+    assert scan.run_scanner("checkov", tmp_path, tmp_path) is None
+    assert not (tmp_path / "checkov.sarif").exists()

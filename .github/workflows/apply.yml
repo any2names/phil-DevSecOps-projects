@@ -24,6 +24,7 @@ permissions: {}
 
 jobs:
   apply:
+    # checkov:skip=CKV_GHA_7: cloud/environment inputs select a terragrunt unit; they cannot alter the build
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     permissions:
