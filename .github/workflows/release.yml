@@ -5,9 +5,6 @@ on:
 
 permissions: {}
 
-env:
-  IMAGE: ghcr.io/${{ github.repository }}/secure-api
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,9 +14,15 @@ jobs:
       id-token: write # keyless cosign
     outputs:
       digest: ${{ steps.build.outputs.digest }}
-      image: ${{ env.IMAGE }}
+      image: ${{ steps.img.outputs.name }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compute image name
+        id: img
+        # GHCR rejects uppercase in a repository path, and github.repository keeps the
+        # original casing, so the name is lowercased once here and reused everywhere.
+        run: |
+          echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/secure-api" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -29,7 +32,7 @@ jobs:
       - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         id: meta
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ steps.img.outputs.name }}
           tags: type=semver,pattern={{version}}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         id: build
@@ -47,7 +50,7 @@ jobs:
       - run: pip install -e ./platformctl
       - name: SBOM, sign, attest, verify
         run: |
-          REF="${IMAGE}@${{ steps.build.outputs.digest }}"
+          REF="${{ steps.img.outputs.name }}@${{ steps.build.outputs.digest }}"
           platformctl sbom "$REF" --out sbom.spdx.json
           platformctl sign "$REF" --sbom sbom.spdx.json
           platformctl verify "$REF" --identity-regexp "^https://github.com/${{ github.repository }}/"
