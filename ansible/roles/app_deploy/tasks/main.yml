@@ -61,8 +61,11 @@
     name: "{{ app_deploy_dir }}/src"
     virtualenv: "{{ app_deploy_dir }}/venv"
     virtualenv_command: python3 -m venv
+    umask: "0022" # the harden role sets a 027 login umask; the venv must stay world-traversable
   when: app_deploy_source_copy.changed or not app_deploy_uvicorn.stat.exists
-  notify: Restart secure-api
+  notify:
+    - Normalise virtualenv permissions
+    - Restart secure-api
 
 - name: Install secret fetcher
   ansible.builtin.template:
