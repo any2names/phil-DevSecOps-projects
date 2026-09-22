@@ -1,0 +1,28 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: ${MOLECULE_PROJECT_DIRECTORY}/requirements.yml
+driver:
+  name: docker
+platforms:
+  - name: secure-api-jammy
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: /lib/systemd/systemd
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/roles
+  inventory:
+    host_vars:
+      secure-api-jammy:
+        cloud: local
+        environment: dev
+        app_deploy_source: ${MOLECULE_PROJECT_DIRECTORY}/../app
+verifier:
+  name: ansible

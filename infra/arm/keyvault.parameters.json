@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultName": { "value": "kv-sap-dev-REPLACE_ME_SUFFIX" },
+    "tags": { "value": { "project": "sap", "environment": "dev", "owner": "platform", "cost-center": "eng" } }
+  }
+}

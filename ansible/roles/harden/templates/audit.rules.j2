@@ -1,0 +1,15 @@
+## Managed by Ansible (roles/harden)
+-D
+-b 8192
+-f 1
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d/ -p wa -k scope
+-w /etc/ssh/sshd_config -p wa -k sshd
+-w /etc/ssh/sshd_config.d/ -p wa -k sshd
+-w /var/log/auth.log -p wa -k logins
+-w /etc/secure-api/ -p wa -k app-secrets
+-a always,exit -F arch=b64 -S execve -F euid=0 -k root-commands
+-e 2

@@ -1,0 +1,124 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_reusable-python.yml
+
+  terraform:
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: [azure, aws]
+        environment: [dev, prod]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_reusable-terraform.yml
+    with:
+      cloud: ${{ matrix.cloud }}
+      environment: ${{ matrix.environment }}
+
+  security:
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/_reusable-security.yml
+
+  arm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: JSON syntax
+        run: python3 -c "import json; json.load(open('infra/arm/keyvault.json')); json.load(open('infra/arm/keyvault.parameters.json'))"
+      - name: arm-ttk
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/Azure/arm-ttk.git /tmp/arm-ttk
+          Import-Module /tmp/arm-ttk/arm-ttk/arm-ttk.psd1
+          # arm-ttk expects the azuredeploy.json naming convention; stage copies under that name.
+          New-Item -ItemType Directory -Force /tmp/arm-under-test | Out-Null
+          Copy-Item infra/arm/keyvault.json /tmp/arm-under-test/azuredeploy.json
+          Copy-Item infra/arm/keyvault.parameters.json /tmp/arm-under-test/azuredeploy.parameters.json
+          $results = Test-AzTemplate -TemplatePath /tmp/arm-under-test
+          $results | Format-Table -AutoSize
+          $failed = @($results | Where-Object { -not $_.Passed })
+          if ($failed.Count -gt 0) { $failed | Format-List; exit 1 }
+
+  ansible:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible ansible-lint "molecule>=6" "molecule-plugins[docker]"
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: cd ansible && ansible-lint
+      - run: cd ansible && molecule test
+        env:
+          MOLECULE_PROJECT_DIRECTORY: ${{ github.workspace }}/ansible
+
+  app:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: app
+          load: true
+          tags: secure-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start container
+        run: docker run -d --rm --name api -e APP_SECRET=ci-only-secret-0123456789 -p 8000:8000 secure-api:ci
+      - name: Smoke test
+        # checkov:skip=CKV_GHA_3: false positive — curl targets localhost; "secret_configured" is a JSON field name, not a secret
+        run: |
+          for _ in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:8000/healthz; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8000/api/v1/status | grep -q '"secret_configured":true'
+          docker stop api
+      - name: Trivy image report (table)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: secure-api:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Trivy image gate (SARIF, fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: secure-api:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true # unfixed OS CVEs in the distroless base cannot be remediated here
+          exit-code: "1"
+          skip-setup-trivy: true
+      - uses: github/codeql-action/upload-sarif@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image

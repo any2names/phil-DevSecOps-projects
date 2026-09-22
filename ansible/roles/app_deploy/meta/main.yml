@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  author: platform-team
+  description: Deploys the secure-api FastAPI service under hardened systemd behind nginx TLS
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions: [jammy]
+dependencies: []

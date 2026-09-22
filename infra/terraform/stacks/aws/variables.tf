@@ -1,0 +1,9 @@
+variable "project" { type = string }
+variable "environment" { type = string }
+variable "region" { type = string }
+variable "cidr" { type = string }
+variable "allowed_ssh_cidrs" { type = list(string) }
+variable "instance_size" { type = string }
+variable "ssh_public_key" { type = string }
+variable "tags" { type = map(string) }
+variable "ami_id" { type = string }

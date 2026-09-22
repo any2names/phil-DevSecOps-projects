@@ -1,0 +1,4 @@
+# Each entry needs a justification. Keep this list short.
+# AZU-0013: infra/arm/keyvault.json sets networkAcls.defaultAction = Deny and publicNetworkAccess = Disabled;
+# trivy's ARM adapter does not resolve the nested networkAcls object and reports a false positive.
+AVD-AZU-0013

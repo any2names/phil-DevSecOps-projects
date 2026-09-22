@@ -1,0 +1,158 @@
+---
+- name: Detect container runtime
+  ansible.builtin.set_fact:
+    app_deploy_in_container: "{{ ansible_facts.virtualization_type in ['docker', 'container', 'containerd', 'podman'] }}"
+
+- name: Install runtime packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+      - nginx
+      - curl
+      - jq
+      - "{{ 'awscli' if app_deploy_cloud == 'aws' else 'ca-certificates' }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create service user
+  ansible.builtin.user:
+    name: "{{ app_deploy_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ app_deploy_dir }}"
+    create_home: false
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ app_deploy_dir }}", owner: root, mode: "0755" }
+    - { path: "{{ app_deploy_dir }}/src", owner: root, mode: "0755" }
+    - { path: /etc/secure-api, owner: root, mode: "0750" }
+    - { path: /etc/nginx/tls, owner: root, mode: "0750" }
+
+- name: Copy application source
+  ansible.builtin.copy:
+    src: "{{ app_deploy_source }}/"
+    dest: "{{ app_deploy_dir }}/src/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  register: app_deploy_source_copy
+  notify: Restart secure-api
+
+- name: Check whether the app is already installed
+  ansible.builtin.stat:
+    path: "{{ app_deploy_dir }}/venv/bin/uvicorn"
+  register: app_deploy_uvicorn
+
+# pip always reports a local-path install as changed, so only (re)install when the
+# source changed or the venv is missing — keeps the role idempotent.
+- name: Create virtualenv and install the app
+  ansible.builtin.pip:
+    name: "{{ app_deploy_dir }}/src"
+    virtualenv: "{{ app_deploy_dir }}/venv"
+    virtualenv_command: python3 -m venv
+    umask: "0022" # the harden role sets a 027 login umask; the venv must stay world-traversable
+  when: app_deploy_source_copy.changed or not app_deploy_uvicorn.stat.exists
+  notify:
+    - Normalise virtualenv permissions
+    - Restart secure-api
+
+- name: Install secret fetcher
+  ansible.builtin.template:
+    src: fetch-secret.sh.j2
+    dest: /usr/local/sbin/fetch-secret.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Seed a local development secret when no cloud secret store is configured
+  ansible.builtin.copy:
+    dest: /etc/secure-api/env
+    owner: root
+    group: "{{ app_deploy_user }}"
+    mode: "0640"
+    content: "APP_SECRET=local-dev-only-not-a-real-secret\nAPP_ENV={{ app_deploy_environment }}\n"
+  when: app_deploy_cloud == 'local'
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: secure-api.service.j2
+    dest: /etc/systemd/system/secure-api.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart secure-api
+
+- name: Generate a self-signed certificate when no domain is configured
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -newkey rsa:2048 -nodes -days 365
+      -subj "/CN={{ ansible_facts.fqdn | default('secure-api.local') }}"
+      -keyout /etc/nginx/tls/server.key -out /etc/nginx/tls/server.crt
+    creates: /etc/nginx/tls/server.crt
+  when: app_deploy_domain | length == 0
+
+- name: Obtain an ACME certificate with certbot
+  when: app_deploy_domain | length > 0 and not app_deploy_in_container
+  block:
+    - name: Install certbot
+      ansible.builtin.apt:
+        name: [certbot, python3-certbot-nginx]
+        state: present
+    - name: Request certificate
+      ansible.builtin.command:
+        cmd: >
+          certbot certonly --nginx --non-interactive --agree-tos
+          -m {{ app_deploy_acme_email }} -d {{ app_deploy_domain }}
+        creates: "/etc/letsencrypt/live/{{ app_deploy_domain }}/fullchain.pem"
+    - name: Enable renewal timer
+      ansible.builtin.systemd:
+        name: certbot.timer
+        enabled: true
+        state: started
+
+- name: Install nginx site
+  ansible.builtin.template:
+    src: nginx-secure-api.conf.j2
+    dest: /etc/nginx/sites-available/secure-api.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Disable the default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Enable the secure-api nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/secure-api.conf
+    path: /etc/nginx/sites-enabled/secure-api.conf
+    state: link
+  notify: Reload nginx
+
+- name: Apply pending unit/config changes before starting services
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - secure-api
+    - nginx

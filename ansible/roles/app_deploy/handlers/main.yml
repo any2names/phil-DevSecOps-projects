@@ -1,0 +1,23 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Normalise virtualenv permissions
+  ansible.builtin.file:
+    path: "{{ app_deploy_dir }}/venv"
+    state: directory
+    recurse: true
+    owner: root
+    group: "{{ app_deploy_user }}"
+    mode: "u=rwX,g=rX,o="
+
+- name: Restart secure-api
+  ansible.builtin.systemd:
+    name: secure-api
+    state: restarted
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

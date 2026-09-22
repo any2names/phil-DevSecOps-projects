@@ -1,0 +1,19 @@
+---
+- name: Remove insecure legacy packages
+  ansible.builtin.apt:
+    name: "{{ harden_remove_packages }}"
+    state: absent
+    purge: true
+
+- name: Install hardening packages
+  ansible.builtin.apt:
+    name: "{{ harden_install_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set restrictive default umask
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^UMASK\s'
+    line: "UMASK 027"

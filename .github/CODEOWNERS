@@ -1,0 +1,4 @@
+# Changes to policy, workflows and secrets handling need a platform-team review.
+/policy/                @any2names
+/.github/workflows/     @any2names
+/infra/terraform/modules/secrets/ @any2names

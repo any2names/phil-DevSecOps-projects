@@ -1,0 +1,23 @@
+---
+- name: Ensure the sshd privilege-separation directory exists (sshd -t needs it)
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install SSH hardening drop-in
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart sshd
+
+- name: Ensure sshd is enabled
+  ansible.builtin.service:
+    name: ssh
+    enabled: true

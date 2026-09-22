@@ -1,0 +1,11 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "resource_changes": [
+    {"address": "module.network.azurerm_virtual_network.this", "type": "azurerm_virtual_network", "change": {"actions": ["create"], "after": {"name": "vnet"}}},
+    {"address": "module.compute.azurerm_linux_virtual_machine.this", "type": "azurerm_linux_virtual_machine", "change": {"actions": ["delete", "create"], "after": {"size": "Standard_B2s"}}},
+    {"address": "module.secrets.azurerm_role_assignment.kv", "type": "azurerm_role_assignment", "change": {"actions": ["update"], "after": {}}},
+    {"address": "module.network.azurerm_subnet.this", "type": "azurerm_subnet", "change": {"actions": ["no-op"], "after": {}}},
+    {"address": "module.network.azurerm_network_security_rule.old", "type": "azurerm_network_security_rule", "change": {"actions": ["delete"], "before": {}}}
+  ]
+}
