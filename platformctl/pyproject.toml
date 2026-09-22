@@ -9,7 +9,7 @@ description = "Orchestration CLI for the secure-api-platform: plan, policy, scan
 requires-python = ">=3.12"
 dependencies = [
   "typer>=0.12",
-  "pydantic>=2.7",
+  "pydantic>=2.13.5",
   "structlog>=24.1",
   "rich>=13.7",
   "httpx>=0.27",
