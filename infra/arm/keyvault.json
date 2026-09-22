@@ -33,7 +33,7 @@
   "resources": [
     {
       "type": "Microsoft.KeyVault/vaults",
-      "apiVersion": "2023-07-01",
+      "apiVersion": "2024-11-01",
       "name": "[parameters('keyVaultName')]",
       "location": "[parameters('location')]",
       "tags": "[parameters('tags')]",
@@ -56,7 +56,7 @@
     },
     "keyVaultUri": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), '2023-07-01').vaultUri]"
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), '2024-11-01').vaultUri]"
     },
     "diagnosticSettingName": {
       "type": "string",

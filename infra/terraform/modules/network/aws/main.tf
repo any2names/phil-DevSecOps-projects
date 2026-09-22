@@ -81,8 +81,8 @@ locals {
   }
 }
 
+#trivy:ignore:AVD-AWS-0104 destination cannot be narrowed for public mirrors/APIs; ports are restricted instead
 resource "aws_vpc_security_group_egress_rule" "allowed" {
-  #trivy:ignore:AVD-AWS-0104 destination cannot be narrowed for public mirrors/APIs; ports are
   for_each          = local.egress
   security_group_id = aws_security_group.app.id
   description       = each.value.description

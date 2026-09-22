@@ -52,7 +52,7 @@ jobs:
           New-Item -ItemType Directory -Force /tmp/arm-under-test | Out-Null
           Copy-Item infra/arm/keyvault.json /tmp/arm-under-test/azuredeploy.json
           Copy-Item infra/arm/keyvault.parameters.json /tmp/arm-under-test/azuredeploy.parameters.json
-          $results = Test-AzTemplate -TemplatePath /tmp/arm-under-test -Skip 'apiVersions-Should-Be-Recent'
+          $results = Test-AzTemplate -TemplatePath /tmp/arm-under-test
           $results | Format-Table -AutoSize
           $failed = @($results | Where-Object { -not $_.Passed })
           if ($failed.Count -gt 0) { $failed | Format-List; exit 1 }
