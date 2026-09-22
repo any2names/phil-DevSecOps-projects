@@ -93,3 +93,31 @@ def test_base_env_sets_automation_flags(monkeypatch: pytest.MonkeyPatch) -> None
     env = terraform.base_env()
     assert env["TF_IN_AUTOMATION"] == "1"
     assert env["TG_BACKEND"] == "local"
+
+
+def test_base_env_hermetic_when_no_credentials(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for k in ("ARM_CLIENT_ID", "ARM_USE_OIDC", "AWS_ACCESS_KEY_ID", "AWS_ROLE_ARN", "TG_BACKEND"):
+        monkeypatch.delenv(k, raising=False)
+    env = terraform.base_env(settings.repo_root)
+    assert env["ARM_USE_CLI"] == "true" and env["TC_TEST_VIA_VCR"] == "1"
+    assert env["PATH"].startswith(str(settings.repo_root / "scripts" / "az-shim"))
+
+
+def test_base_env_not_hermetic_with_real_credentials(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARM_CLIENT_ID", "real")
+    monkeypatch.delenv("TG_BACKEND", raising=False)
+    env = terraform.base_env(settings.repo_root)
+    assert "TC_TEST_VIA_VCR" not in env
+
+
+def test_base_env_not_hermetic_for_remote_backend(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TG_BACKEND", "remote")
+    monkeypatch.delenv("ARM_CLIENT_ID", raising=False)
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    assert "TC_TEST_VIA_VCR" not in terraform.base_env(settings.repo_root)
