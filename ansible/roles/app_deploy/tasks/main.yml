@@ -46,13 +46,22 @@
     group: root
     mode: "0644"
     directory_mode: "0755"
+  register: app_deploy_source_copy
   notify: Restart secure-api
 
+- name: Check whether the app is already installed
+  ansible.builtin.stat:
+    path: "{{ app_deploy_dir }}/venv/bin/uvicorn"
+  register: app_deploy_uvicorn
+
+# pip always reports a local-path install as changed, so only (re)install when the
+# source changed or the venv is missing — keeps the role idempotent.
 - name: Create virtualenv and install the app
   ansible.builtin.pip:
     name: "{{ app_deploy_dir }}/src"
     virtualenv: "{{ app_deploy_dir }}/venv"
     virtualenv_command: python3 -m venv
+  when: app_deploy_source_copy.changed or not app_deploy_uvicorn.stat.exists
   notify: Restart secure-api
 
 - name: Install secret fetcher
@@ -133,12 +142,14 @@
     state: link
   notify: Reload nginx
 
+- name: Apply pending unit/config changes before starting services
+  ansible.builtin.meta: flush_handlers
+
 - name: Enable and start services
   ansible.builtin.systemd:
     name: "{{ item }}"
     enabled: true
     state: started
-    daemon_reload: true
   loop:
     - secure-api
     - nginx
