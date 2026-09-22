@@ -29,9 +29,10 @@ resource "aws_key_pair" "admin" {
 }
 
 resource "aws_kms_key" "disk" {
-  description         = "Root volume encryption for ${local.name}"
-  enable_key_rotation = true
-  tags                = var.tags
+  description             = "Root volume encryption for ${local.name}"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  tags                    = var.tags
 }
 
 resource "aws_eip" "vm" {

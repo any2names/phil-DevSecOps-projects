@@ -13,6 +13,7 @@ regexes = [
   '''local-dev-only-not-a-real-secret''',
   '''ci-only-secret''',
   '''test-secret-value''',
+  '''AKIAABCDEFGHIJKLMNOP''', # fixture in policy/terraform/secrets_test.rego proving the OPA credential-pattern rule fires
 ]
 paths = [
   '''docs/superpowers/.*''',
