@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "secure-api"
 version = "0.1.0"
 description = "Minimal FastAPI service deployed by the secure-api-platform."
-requires-python = ">=3.11"  # distroless python3-debian12 ships 3.11
+requires-python = ">=3.10"  # Ubuntu 22.04 hosts run 3.10; the container image uses 3.11
 dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pydantic-settings>=2.4"]
 
 [project.optional-dependencies]
