@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from platformctl import __version__, adapters, render, terraform
+from platformctl import certs as certs_mod
 from platformctl import drift as drift_mod
 from platformctl import policy as policy_mod
 from platformctl import scan as scan_mod
@@ -176,3 +177,42 @@ def secrets_list(ctx: typer.Context, name: str) -> None:
         tags = ", ".join(f"{k}={val}" for k, val in v.tags.items())
         table.add_row(v.version, v.created.isoformat(timespec="seconds"), str(v.enabled), tags)
     console.print(table)
+
+
+certs_app = typer.Typer(help="Certificate lifecycle")
+app.add_typer(certs_app, name="certs")
+
+
+@certs_app.command("check")
+def certs_check(
+    ctx: typer.Context,
+    warn_days: Annotated[
+        int | None, typer.Option(help="Override warn threshold from config")
+    ] = None,
+    probe: Annotated[bool, typer.Option(help="Also TLS-probe cert_targets from config")] = True,
+) -> None:
+    """Report certificates expiring within the warning window. Exit 1 if any."""
+    settings = get_settings(ctx)
+    found: list[adapters.Certificate] = adapters.get_adapter(settings).list_certificates()
+    if probe:
+        for target in settings.cert_targets:
+            try:
+                found.append(certs_mod.probe_tls(target.host, target.port))
+            except certs_mod.ProbeError as exc:
+                console.print(f"[yellow]probe failed[/] {exc}")
+    statuses = certs_mod.evaluate(found, warn_days or settings.warn_days)
+    table = Table(title="Certificates")
+    for col in ("Status", "Name", "Source", "Expires", "Days"):
+        table.add_column(col)
+    style = {"ok": "green", "warning": "yellow", "expired": "red"}
+    for s in statuses:
+        table.add_row(
+            f"[{style[s.status]}]{s.status}[/]",
+            s.name,
+            s.source,
+            s.not_after.date().isoformat(),
+            str(s.days_remaining),
+        )
+    console.print(table)
+    if any(s.status != "ok" for s in statuses):
+        raise typer.Exit(code=1)
