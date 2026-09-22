@@ -8,7 +8,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from platformctl import __version__, adapters, render, terraform
+from platformctl import __version__, adapters, render, supplychain, terraform
+from platformctl import ansible as ansible_mod
 from platformctl import certs as certs_mod
 from platformctl import drift as drift_mod
 from platformctl import policy as policy_mod
@@ -215,4 +216,58 @@ def certs_check(
         )
     console.print(table)
     if any(s.status != "ok" for s in statuses):
+        raise typer.Exit(code=1)
+
+
+ansible_app = typer.Typer(help="Ansible helpers")
+app.add_typer(ansible_app, name="ansible")
+
+
+@ansible_app.command("inventory")
+def ansible_inventory(ctx: typer.Context, cloud: CloudName, env: EnvName) -> None:
+    """Write ansible/inventory/<cloud>-<env>.yml from terragrunt outputs."""
+    settings = get_settings(ctx)
+    outputs = terraform.terragrunt_outputs(settings, cloud, env)
+    inventory = ansible_mod.build_inventory(outputs, cloud, env)
+    path = ansible_mod.write_inventory(settings, cloud, env, inventory)
+    console.print(f"inventory written to {path}")
+
+
+@app.command()
+def sbom(
+    ctx: typer.Context,
+    image: str,
+    out: Annotated[Path, typer.Option()] = Path("sbom.spdx.json"),
+) -> None:
+    """Generate an SPDX SBOM for IMAGE with syft."""
+    console.print(f"SBOM written to {supplychain.sbom(image, out)}")
+
+
+@app.command()
+def sign(
+    ctx: typer.Context,
+    image: str,
+    sbom_path: Annotated[Path | None, typer.Option("--sbom")] = None,
+) -> None:
+    """Keyless-sign IMAGE with cosign and optionally attach an SBOM attestation."""
+    supplychain.sign(image)
+    if sbom_path:
+        supplychain.attest_sbom(image, sbom_path)
+    console.print(f"[green]signed[/] {image}")
+
+
+@app.command()
+def verify(
+    ctx: typer.Context,
+    image: str,
+    identity_regexp: Annotated[
+        str, typer.Option(help="Regexp for the signing certificate identity")
+    ],
+    issuer: Annotated[str, typer.Option()] = supplychain.GITHUB_ISSUER,
+) -> None:
+    """Verify IMAGE signature against an OIDC identity. Exit 1 if not verified."""
+    if supplychain.verify(image, identity_regexp, issuer):
+        console.print(f"[green]verified[/] {image}")
+    else:
+        console.print(f"[red]NOT verified[/] {image}")
         raise typer.Exit(code=1)
