@@ -1,0 +1,73 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read sshd hardening drop-in
+      ansible.builtin.slurp:
+        src: /etc/ssh/sshd_config.d/00-hardening.conf
+      register: sshd_conf
+
+    - name: Assert SSH hardening
+      ansible.builtin.assert:
+        that:
+          - "'PermitRootLogin no' in (sshd_conf.content | b64decode)"
+          - "'PasswordAuthentication no' in (sshd_conf.content | b64decode)"
+          - "'AllowUsers platform' in (sshd_conf.content | b64decode)"
+
+    - name: Check unattended upgrades configured
+      ansible.builtin.stat:
+        path: /etc/apt/apt.conf.d/20auto-upgrades
+      register: upgrades
+      failed_when: not upgrades.stat.exists
+
+    - name: Check legacy packages absent
+      ansible.builtin.command: dpkg -s telnet
+      register: telnet
+      changed_when: false
+      failed_when: telnet.rc == 0
+
+    - name: Read service unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/secure-api.service
+      register: unit
+
+    - name: Assert service unit is hardened
+      ansible.builtin.assert:
+        that:
+          - "'ProtectSystem=strict' in (unit.content | b64decode)"
+          - "'NoNewPrivileges=yes' in (unit.content | b64decode)"
+          - "'CapabilityBoundingSet=' in (unit.content | b64decode)"
+
+    - name: Stat secret file
+      ansible.builtin.stat:
+        path: /etc/secure-api/env
+      register: envfile
+
+    - name: Assert secret file permissions
+      ansible.builtin.assert:
+        that:
+          - envfile.stat.mode == '0640'
+          - envfile.stat.pw_name == 'root'
+
+    - name: Wait for the app to answer
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8000/healthz
+        return_content: true
+      register: health
+      retries: 10
+      delay: 3
+      until: health.status == 200
+
+    - name: Assert health payload
+      ansible.builtin.assert:
+        that: health.json.status == 'ok'
+
+    - name: Assert nginx serves TLS
+      ansible.builtin.uri:
+        url: https://127.0.0.1/healthz
+        validate_certs: false
+        return_content: true
+      register: tls
+      failed_when: tls.status != 200

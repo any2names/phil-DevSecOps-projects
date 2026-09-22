@@ -1,0 +1,13 @@
+---
+app_deploy_user: secure-api
+app_deploy_dir: /opt/secure-api
+app_deploy_source: "{{ playbook_dir }}/../../app"
+app_deploy_port: 8000
+app_deploy_domain: "" # set to enable ACME (certbot); empty = self-signed cert
+app_deploy_acme_email: ""
+app_deploy_secret_name: app # Key Vault secret name / Secrets Manager secret id suffix
+# Inventory vars written by `platformctl ansible inventory` (cloud, environment,
+# secret_store_id) are mapped into role-prefixed vars here so the role stays self-contained.
+app_deploy_cloud: "{{ cloud | default('local') }}" # azure | aws | local
+app_deploy_environment: "{{ environment | default('dev') }}"
+app_deploy_secret_store_id: "{{ secret_store_id | default('') }}"

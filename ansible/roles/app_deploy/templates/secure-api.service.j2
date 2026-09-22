@@ -1,0 +1,39 @@
+[Unit]
+Description=secure-api FastAPI service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ app_deploy_user }}
+Group={{ app_deploy_user }}
+WorkingDirectory={{ app_deploy_dir }}
+{% if app_deploy_cloud != 'local' %}
+ExecStartPre=+/usr/local/sbin/fetch-secret.sh
+{% endif %}
+EnvironmentFile=/etc/secure-api/env
+ExecStart={{ app_deploy_dir }}/venv/bin/uvicorn secure_api.main:app --host 127.0.0.1 --port {{ app_deploy_port }}
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
