@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /platformctl
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /app
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /app
+    schedule: { interval: weekly }
+  - package-ecosystem: terraform
+    directories:
+      - /infra/terraform/modules/network/azure
+      - /infra/terraform/modules/network/aws
+      - /infra/terraform/modules/compute/azure
+      - /infra/terraform/modules/compute/aws
+      - /infra/terraform/modules/secrets/azure
+      - /infra/terraform/modules/secrets/aws
+    schedule: { interval: weekly }

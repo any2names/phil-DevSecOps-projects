@@ -1,0 +1,62 @@
+name: _terraform
+on:
+  workflow_call:
+    inputs:
+      cloud:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+
+permissions: {}
+
+env:
+  TERRAFORM_VERSION: "1.9.8"
+  TERRAGRUNT_VERSION: "0.67.16"
+  CONFTEST_VERSION: "0.56.0"
+  TG_BACKEND: local
+  # No cloud credentials anywhere in CI. platformctl detects that and injects a hermetic
+  # plan environment (dummy AWS keys; az CLI shim + TC_TEST_VIA_VCR for Azure) — see ADR-0007.
+
+jobs:
+  terraform:
+    name: ${{ inputs.cloud }}/${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: Install terragrunt and conftest
+        run: |
+          curl -fsSL -o /usr/local/bin/terragrunt "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x /usr/local/bin/terragrunt
+          curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin conftest
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ./platformctl
+      - run: terraform fmt -check -recursive infra/terraform
+      - name: Validate modules and stacks
+        run: |
+          for d in infra/terraform/modules/*/* infra/terraform/stacks/*; do
+            (cd "$d" && terraform init -backend=false -input=false >/dev/null && terraform validate) || exit 1
+          done
+      - name: Module unit tests
+        run: |
+          for d in infra/terraform/modules/*/${{ inputs.cloud }}; do
+            (cd "$d" && terraform init -backend=false -input=false >/dev/null && terraform test) || exit 1
+          done
+      - name: Policy unit tests
+        run: conftest verify -p policy/terraform && conftest fmt --check policy/terraform
+      - name: Plan + policy gate
+        run: platformctl plan ${{ inputs.cloud }} ${{ inputs.environment }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: plan-${{ inputs.cloud }}-${{ inputs.environment }}
+          path: .platformctl/plans/${{ inputs.cloud }}-${{ inputs.environment }}.json

@@ -1,0 +1,96 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    uses: ./.github/workflows/_reusable-python.yml
+
+  terraform:
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: [azure, aws]
+        environment: [dev, prod]
+    uses: ./.github/workflows/_reusable-terraform.yml
+    with:
+      cloud: ${{ matrix.cloud }}
+      environment: ${{ matrix.environment }}
+
+  security:
+    uses: ./.github/workflows/_reusable-security.yml
+
+  arm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: JSON syntax
+        run: python3 -c "import json; json.load(open('infra/arm/keyvault.json')); json.load(open('infra/arm/keyvault.parameters.json'))"
+      - name: arm-ttk
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/Azure/arm-ttk.git /tmp/arm-ttk
+          Import-Module /tmp/arm-ttk/arm-ttk/arm-ttk.psd1
+          $results = Test-AzTemplate -TemplatePath infra/arm -Skip 'apiVersions-Should-Be-Recent'
+          $results | Format-Table -AutoSize
+          if ($results | Where-Object { -not $_.Passed }) { exit 1 }
+
+  ansible:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible ansible-lint "molecule>=6" "molecule-plugins[docker]"
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: cd ansible && ansible-lint
+      - run: cd ansible && molecule test
+        env:
+          MOLECULE_PROJECT_DIRECTORY: ${{ github.workspace }}/ansible
+
+  app:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: app
+          load: true
+          tags: secure-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test container
+        run: |
+          docker run -d --rm --name api -e APP_SECRET=ci-only-secret -p 8000:8000 secure-api:ci
+          for i in $(seq 1 15); do curl -fsS http://127.0.0.1:8000/healthz && break || sleep 1; done
+          curl -fsS http://127.0.0.1:8000/api/v1/status | grep -q '"secret_configured":true'
+          docker stop api
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: secure-api:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+      - uses: github/codeql-action/upload-sarif@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image

@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from platformctl import __version__, adapters, render, supplychain, terraform
+from platformctl import actions as actions_mod
 from platformctl import ansible as ansible_mod
 from platformctl import certs as certs_mod
 from platformctl import drift as drift_mod
@@ -271,3 +272,34 @@ def verify(
     else:
         console.print(f"[red]NOT verified[/] {image}")
         raise typer.Exit(code=1)
+
+
+actions_app = typer.Typer(help="GitHub Actions hygiene")
+app.add_typer(actions_app, name="actions")
+
+
+@actions_app.command("pin")
+def actions_pin(
+    ctx: typer.Context,
+    check: Annotated[
+        bool, typer.Option("--check", help="Only report unpinned references; exit 1 if any")
+    ] = False,
+    directory: Annotated[Path, typer.Option("--dir")] = Path(".github/workflows"),
+) -> None:
+    """Pin every `uses:` reference to a commit SHA, keeping the tag as a comment."""
+    settings = get_settings(ctx)
+    wf_dir = settings.repo_root / directory
+    if check:
+        unpinned = [
+            (p.name, u)
+            for p in sorted(wf_dir.glob("*.yml"))
+            for u in actions_mod.find_unpinned(p.read_text())
+        ]
+        for name, u in unpinned:
+            console.print(f"[red]unpinned[/] {name}:{u.line} {u.repo}{u.path}@{u.ref}")
+        if unpinned:
+            raise typer.Exit(code=1)
+        console.print("[green]all actions pinned[/]")
+        return
+    for path in actions_mod.pin_directory(wf_dir, actions_mod.resolve_sha):
+        console.print(f"pinned {path.relative_to(settings.repo_root)}")
