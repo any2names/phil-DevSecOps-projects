@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Stage 1: install into an isolated prefix.
-FROM python:3.11-slim@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9 AS build
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS build
 WORKDIR /build
 COPY pyproject.toml ./
 COPY src ./src
@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Stage 2: runtime. Same digest-pinned slim base, Debian security updates applied at build time,
 # non-root user, no build tooling, no pip/setuptools (they ship vendored deps with CVEs and are useless at runtime). (distroless/python3 was evaluated but lagged Debian security
 # fixes by 19 fixable HIGH CVEs at the time of writing, so it failed the Trivy gate.)
-FROM python:3.11-slim@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get clean && rm -rf /var/lib/apt/lists/* \
